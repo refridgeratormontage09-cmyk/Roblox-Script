@@ -497,11 +497,57 @@ local function LoadMainGUI()
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ScreenGui.Parent = PlayerGui
 
+    -- M Toggle Button (shown when GUI is hidden)
+    local ToggleBtn = Instance.new("TextButton")
+    ToggleBtn.Size = UDim2.new(0, 44, 0, 44)
+    ToggleBtn.Position = UDim2.new(0, 12, 0.5, -22)
+    ToggleBtn.BackgroundColor3 = C.HEADER
+    ToggleBtn.Text = "M"
+    ToggleBtn.Font = Enum.Font.GothamBlack
+    ToggleBtn.TextSize = 20
+    ToggleBtn.TextColor3 = C.ACCENT
+    ToggleBtn.BorderSizePixel = 0
+    ToggleBtn.ZIndex = 999
+    ToggleBtn.Visible = false
+    ToggleBtn.Active = true
+    ToggleBtn.Parent = ScreenGui
+    Corner(ToggleBtn, 12)
+    Stroke(ToggleBtn, C.ACCENT, 2)
+
+    -- Draggable toggle button
+    local togDragging, togDragStart, togStartPos
+    ToggleBtn.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.Touch then
+            togDragging = true
+            togDragStart = i.Position
+            togStartPos = ToggleBtn.Position
+        end
+    end)
+    ToggleBtn.InputChanged:Connect(function(i)
+        if togDragging and i.UserInputType == Enum.UserInputType.Touch then
+            local d = i.Position - togDragStart
+            ToggleBtn.Position = UDim2.new(
+                togStartPos.X.Scale, togStartPos.X.Offset + d.X,
+                togStartPos.Y.Scale, togStartPos.Y.Offset + d.Y
+            )
+        end
+    end)
+    ToggleBtn.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.Touch then
+            togDragging = false
+        end
+    end)
+
+    ToggleBtn.MouseButton1Click:Connect(function()
+        MainFrame.Visible = true
+        ToggleBtn.Visible = false
+    end)
+
     -- Main frame
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(0, 330, 0, 480)
-    MainFrame.Position = UDim2.new(0.5, -165, 0.5, -240)
+    MainFrame.Size = UDim2.new(0, 310, 0, 340)
+    MainFrame.Position = UDim2.new(0.5, -155, 0.5, -170)
     MainFrame.BackgroundColor3 = C.BG
     MainFrame.BorderSizePixel = 0
     MainFrame.Active = true
@@ -596,7 +642,8 @@ local function LoadMainGUI()
     CloseBtn.Parent = Header
     Corner(CloseBtn, 8)
     CloseBtn.MouseButton1Click:Connect(function()
-        ScreenGui:Destroy()
+        MainFrame.Visible = false
+        ToggleBtn.Visible = true
     end)
 
     -- ========================
@@ -627,7 +674,7 @@ local function LoadMainGUI()
     -- CONTENT AREA
     -- ========================
     local ContentArea = Instance.new("Frame")
-    ContentArea.Size = UDim2.new(1, -16, 1, -102)
+    ContentArea.Size = UDim2.new(1, -16, 1, -100)
     ContentArea.Position = UDim2.new(0, 8, 0, 100)
     ContentArea.BackgroundTransparency = 1
     ContentArea.ClipsDescendants = true
