@@ -1,0 +1,1196 @@
+-- // MDG Scripts // --
+-- Made by IamRelz
+-- Mobile UI | Key System | Delta Compatible v2.2
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+local Camera = workspace.CurrentCamera
+
+-- // Cleanup old GUIs
+pcall(function()
+    if PlayerGui:FindFirstChild("MDGScripts") then PlayerGui.MDGScripts:Destroy() end
+    if PlayerGui:FindFirstChild("MDGKeySystem") then PlayerGui.MDGKeySystem:Destroy() end
+end)
+
+-- ============================================================
+-- CONFIG
+-- ============================================================
+local CONFIG = {
+    LINKVERTISE_URL = "https://link-target.net/5505527/MhLMEaoruT3z",
+    LOOTLINK_URL    = "https://lootdest.org/s?n0sXf9jT",
+    VALID_KEYS = {
+    "MDG-ZUGX-MFA2-3VIK",
+    "MDG-I3VL-F55D-BY5H",
+    "MDG-ONK9-OLJ9-VNJY",
+    "MDG-3E46-3YGR-WAU6",
+    "MDG-FZKG-CA24-7UXS",
+    "MDG-KPD2-41H5-1985",
+    "MDG-1PCD-6MOL-LU03",
+    "MDG-N8L4-GVRC-IKO3",
+    "MDG-KS8Z-TJNY-KMD3",
+    "MDG-R0S0-8U5R-2JCL",
+    "MDG-B7FL-6N0P-8VWH",
+    "MDG-C1JR-571Q-18P4",
+    "MDG-3IOE-9JQR-EDRK",
+    "MDG-2Y7K-WF6S-CKAJ",
+    "MDG-DDCM-QDKV-WP3X",
+    "MDG-ERGF-4OS4-MF7S",
+    "MDG-4XD2-3JGH-EHC3",
+    "MDG-ANDW-5HZ9-UPWC",
+    "MDG-I56U-HQP3-N3DG",
+    "MDG-L9SO-YGG9-NSCM",
+    "MDG-8T83-MGAU-ZYVX",
+    "MDG-QX93-9S4V-KCH2",
+    "MDG-PZGA-0SHY-3XYQ",
+    "MDG-2CGB-RKRI-NYZ0",
+    "MDG-70SL-TNSU-ID3K",
+    "MDG-5LRP-7F27-GT7L",
+    "MDG-8TF4-CL7V-T8JX",
+    "MDG-WYMB-WRGM-JT4Y",
+    "MDG-4RKP-5PJC-284I",
+    "MDG-6MCG-7VGQ-5TCE",
+},
+
+
+-- ============================================================
+-- COLORS
+-- ============================================================
+local C = {
+    BG     = Color3.fromRGB(10, 16, 26),
+    PANEL  = Color3.fromRGB(16, 24, 38),
+    CARD   = Color3.fromRGB(20, 30, 48),
+    ACCENT = Color3.fromRGB(45, 155, 255),
+    TEXT   = Color3.fromRGB(215, 232, 255),
+    MUTED  = Color3.fromRGB(100, 132, 175),
+    GREEN  = Color3.fromRGB(45, 200, 120),
+    RED    = Color3.fromRGB(215, 65, 65),
+    BORDER = Color3.fromRGB(35, 55, 85),
+    HEADER = Color3.fromRGB(8, 14, 22),
+}
+
+-- ============================================================
+-- HELPERS
+-- ============================================================
+local function Corner(p, r)
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, r or 8)
+    c.Parent = p
+end
+
+local function Stroke(p, col, thick)
+    local s = Instance.new("UIStroke")
+    s.Color = col or C.BORDER
+    s.Thickness = thick or 1.2
+    s.Parent = p
+end
+
+local function Tween(obj, props, dur)
+    TweenService:Create(obj, TweenInfo.new(dur or 0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props):Play()
+end
+
+local function IsValidKey(input)
+    local t = tostring(input):match("^%s*(.-)%s*$")
+    for _, k in ipairs(CONFIG.VALID_KEYS) do
+        if t == k then return true end
+    end
+    return false
+end
+
+-- Delta safe key save (falls back to just session memory if file funcs missing)
+local keyValidated = false
+
+local function TryLoadSavedKey()
+    local ok, result = pcall(function() return readfile("MDG_Key.txt") end)
+    if ok and result and result ~= "" and IsValidKey(result) then return result end
+    return nil
+end
+
+local function SaveKey(key)
+    pcall(function() writefile("MDG_Key.txt", key) end)
+end
+
+-- ============================================================
+-- M LOGO
+-- ============================================================
+local function BuildMLogo(parent, size, zIdx)
+    size = size or 30
+    zIdx = zIdx or 8
+    local logo = Instance.new("TextLabel")
+    logo.Size = UDim2.new(0, 48, 0, 42)
+    logo.BackgroundTransparency = 1
+    logo.Text = "M"
+    logo.Font = Enum.Font.GothamBlack
+    logo.TextSize = size
+    logo.TextColor3 = C.ACCENT
+    logo.TextXAlignment = Enum.TextXAlignment.Center
+    logo.ZIndex = zIdx
+    logo.Parent = parent
+
+    local glow = Instance.new("UIStroke")
+    glow.Color = C.ACCENT
+    glow.Thickness = 1.5
+    glow.Parent = logo
+
+    task.spawn(function()
+        while logo.Parent do
+            Tween(glow, {Thickness = 2.8}, 1.0)
+            task.wait(1.0)
+            Tween(glow, {Thickness = 0.7}, 1.0)
+            task.wait(1.0)
+        end
+    end)
+
+    return logo
+end
+
+-- ============================================================
+-- WATERFALL BACKGROUND
+-- ============================================================
+local function BuildWaterfallBG(parent, zBase)
+    zBase = zBase or 0
+
+    -- Base background
+    local bg = Instance.new("Frame")
+    bg.Size = UDim2.new(1, 0, 1, 0)
+    bg.BackgroundColor3 = C.BG
+    bg.BorderSizePixel = 0
+    bg.ZIndex = zBase
+    bg.ClipsDescendants = true
+    bg.Parent = parent
+
+    -- Sky gradient (dark top -> lighter horizon)
+    local skyGrad = Instance.new("Frame")
+    skyGrad.Size = UDim2.new(1, 0, 1, 0)
+    skyGrad.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    skyGrad.BackgroundTransparency = 0
+    skyGrad.BorderSizePixel = 0
+    skyGrad.ZIndex = zBase + 1
+    skyGrad.Parent = bg
+    local sg = Instance.new("UIGradient")
+    sg.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0,   Color3.fromRGB(5, 10, 28)),
+        ColorSequenceKeypoint.new(0.6, Color3.fromRGB(10, 22, 55)),
+        ColorSequenceKeypoint.new(1,   Color3.fromRGB(18, 38, 80)),
+    })
+    sg.Rotation = 90
+    sg.Parent = skyGrad
+
+    -- Stars
+    local starPositions = {
+        {0.08,0.06},{0.18,0.12},{0.32,0.04},{0.45,0.09},
+        {0.55,0.03},{0.67,0.14},{0.78,0.07},{0.88,0.11},
+        {0.13,0.22},{0.28,0.18},{0.50,0.20},{0.72,0.16},
+        {0.92,0.05},{0.03,0.15},{0.60,0.25},{0.83,0.22},
+    }
+    for _, sp in ipairs(starPositions) do
+        local star = Instance.new("Frame")
+        star.Size = UDim2.new(0, 2, 0, 2)
+        star.Position = UDim2.new(sp[1], 0, sp[2], 0)
+        star.BackgroundColor3 = Color3.fromRGB(200, 220, 255)
+        star.BackgroundTransparency = 0.3
+        star.BorderSizePixel = 0
+        star.ZIndex = zBase + 2
+        star.Parent = bg
+        Corner(star, 2)
+    end
+
+    -- Far mountain peaks (tallest, back layer)
+    local farPeaks = {
+        {x=0,   w=90,  h=110},
+        {x=60,  w=100, h=140},
+        {x=140, w=80,  h=120},
+        {x=200, w=110, h=155},
+        {x=290, w=90,  h=130},
+    }
+    for _, p in ipairs(farPeaks) do
+        local peak = Instance.new("Frame")
+        peak.Size = UDim2.new(0, p.w, 0, p.h)
+        peak.Position = UDim2.new(0, p.x, 1, -p.h)
+        peak.BackgroundColor3 = Color3.fromRGB(10, 20, 45)
+        peak.BorderSizePixel = 0
+        peak.ZIndex = zBase + 3
+        peak.Parent = bg
+        Corner(peak, 4)
+        local pg = Instance.new("UIGradient")
+        pg.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(18, 34, 72)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 16, 40)),
+        })
+        pg.Rotation = 90
+        pg.Parent = peak
+    end
+
+    -- Mid mountain range
+    local midPeaks = {
+        {x=-10, w=110, h=90},
+        {x=80,  w=95,  h=110},
+        {x=155, w=120, h=100},
+        {x=250, w=100, h=120},
+        {x=320, w=80,  h=85},
+    }
+    for _, p in ipairs(midPeaks) do
+        local peak = Instance.new("Frame")
+        peak.Size = UDim2.new(0, p.w, 0, p.h)
+        peak.Position = UDim2.new(0, p.x, 1, -p.h)
+        peak.BackgroundColor3 = Color3.fromRGB(14, 26, 56)
+        peak.BorderSizePixel = 0
+        peak.ZIndex = zBase + 4
+        peak.Parent = bg
+        Corner(peak, 4)
+        local pg = Instance.new("UIGradient")
+        pg.Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(22, 42, 88)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(12, 22, 52)),
+        })
+        pg.Rotation = 90
+        pg.Parent = peak
+    end
+
+    -- Foreground hills (closest layer)
+    local fgPeaks = {
+        {x=-20, w=140, h=55},
+        {x=100, w=130, h=65},
+        {x=210, w=150, h=60},
+        {x=320, w=120, h=50},
+    }
+    for _, p in ipairs(fgPeaks) do
+        local peak = Instance.new("Frame")
+        peak.Size = UDim2.new(0, p.w, 0, p.h)
+        peak.Position = UDim2.new(0, p.x, 1, -p.h)
+        peak.BackgroundColor3 = Color3.fromRGB(8, 14, 30)
+        peak.BorderSizePixel = 0
+        peak.ZIndex = zBase + 5
+        peak.Parent = bg
+        Corner(peak, 6)
+    end
+
+    -- Ground strip
+    local ground = Instance.new("Frame")
+    ground.Size = UDim2.new(1, 0, 0, 28)
+    ground.Position = UDim2.new(0, 0, 1, -28)
+    ground.BackgroundColor3 = Color3.fromRGB(6, 11, 24)
+    ground.BorderSizePixel = 0
+    ground.ZIndex = zBase + 6
+    ground.Parent = bg
+
+    return bg
+end
+-- ============================================================
+-- KEY SYSTEM
+-- ============================================================
+local function ShowKeySystem(onSuccess)
+    -- Check saved key first
+    local saved = TryLoadSavedKey()
+    if saved then
+        onSuccess()
+        return
+    end
+
+    local KeyGui = Instance.new("ScreenGui")
+    KeyGui.Name = "MDGKeySystem"
+    KeyGui.ResetOnSpawn = false
+    KeyGui.DisplayOrder = 999
+    KeyGui.IgnoreGuiInset = true
+    KeyGui.Parent = PlayerGui
+
+    -- Dim overlay
+    local overlay = Instance.new("Frame")
+    overlay.Size = UDim2.new(1, 0, 1, 0)
+    overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    overlay.BackgroundTransparency = 0.45
+    overlay.BorderSizePixel = 0
+    overlay.ZIndex = 1
+    overlay.Parent = KeyGui
+
+    -- Key box
+    local box = Instance.new("Frame")
+    box.Size = UDim2.new(0, 300, 0, 345)
+    box.Position = UDim2.new(0.5, -150, 0.5, -172)
+    box.BackgroundColor3 = C.BG
+    box.BorderSizePixel = 0
+    box.ZIndex = 2
+    box.ClipsDescendants = true
+    box.Parent = KeyGui
+    Corner(box, 18)
+    Stroke(box, C.BORDER, 1.5)
+
+    BuildWaterfallBG(box, 2)
+
+    -- Logo holder
+    local logoHolder = Instance.new("Frame")
+    logoHolder.Size = UDim2.new(0, 64, 0, 64)
+    logoHolder.Position = UDim2.new(0.5, -32, 0, 18)
+    logoHolder.BackgroundColor3 = C.PANEL
+    logoHolder.BorderSizePixel = 0
+    logoHolder.ZIndex = 10
+    logoHolder.Parent = box
+    Corner(logoHolder, 16)
+    Stroke(logoHolder, C.ACCENT, 1.5)
+
+    local mLogo = BuildMLogo(logoHolder, 30, 11)
+    mLogo.Position = UDim2.new(0, 8, 0, 11)
+
+    -- Title
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 24)
+    title.Position = UDim2.new(0, 0, 0, 94)
+    title.BackgroundTransparency = 1
+    title.Text = "MDG Scripts"
+    title.Font = Enum.Font.GothamBlack
+    title.TextSize = 18
+    title.TextColor3 = C.TEXT
+    title.TextXAlignment = Enum.TextXAlignment.Center
+    title.ZIndex = 10
+    title.Parent = box
+
+    local sub = Instance.new("TextLabel")
+    sub.Size = UDim2.new(1, 0, 0, 16)
+    sub.Position = UDim2.new(0, 0, 0, 120)
+    sub.BackgroundTransparency = 1
+    sub.Text = "Enter your key to continue"
+    sub.Font = Enum.Font.Gotham
+    sub.TextSize = 12
+    sub.TextColor3 = C.MUTED
+    sub.TextXAlignment = Enum.TextXAlignment.Center
+    sub.ZIndex = 10
+    sub.Parent = box
+
+    -- Input frame
+    local inputFrame = Instance.new("Frame")
+    inputFrame.Size = UDim2.new(1, -32, 0, 40)
+    inputFrame.Position = UDim2.new(0, 16, 0, 148)
+    inputFrame.BackgroundColor3 = C.PANEL
+    inputFrame.BorderSizePixel = 0
+    inputFrame.ZIndex = 10
+    inputFrame.Parent = box
+    Corner(inputFrame, 9)
+    Stroke(inputFrame, C.BORDER, 1)
+
+    local keyInput = Instance.new("TextBox")
+    keyInput.Size = UDim2.new(1, -16, 1, 0)
+    keyInput.Position = UDim2.new(0, 8, 0, 0)
+    keyInput.BackgroundTransparency = 1
+    keyInput.PlaceholderText = "MDG-XXXX-XXXX-XXXX"
+    keyInput.Text = ""
+    keyInput.Font = Enum.Font.GothamSemibold
+    keyInput.TextSize = 13
+    keyInput.TextColor3 = C.TEXT
+    keyInput.PlaceholderColor3 = C.MUTED
+    keyInput.BorderSizePixel = 0
+    keyInput.ClearTextOnFocus = false
+    keyInput.ZIndex = 11
+    keyInput.Parent = inputFrame
+
+    -- Status label
+    local statusLbl = Instance.new("TextLabel")
+    statusLbl.Size = UDim2.new(1, 0, 0, 16)
+    statusLbl.Position = UDim2.new(0, 0, 0, 194)
+    statusLbl.BackgroundTransparency = 1
+    statusLbl.Text = ""
+    statusLbl.Font = Enum.Font.Gotham
+    statusLbl.TextSize = 11
+    statusLbl.TextColor3 = C.RED
+    statusLbl.TextXAlignment = Enum.TextXAlignment.Center
+    statusLbl.ZIndex = 10
+    statusLbl.Parent = box
+
+    -- Redeem button
+    local redeemBtn = Instance.new("TextButton")
+    redeemBtn.Size = UDim2.new(1, -32, 0, 40)
+    redeemBtn.Position = UDim2.new(0, 16, 0, 216)
+    redeemBtn.BackgroundColor3 = C.ACCENT
+    redeemBtn.Text = "Redeem Key"
+    redeemBtn.Font = Enum.Font.GothamBold
+    redeemBtn.TextSize = 14
+    redeemBtn.TextColor3 = C.TEXT
+    redeemBtn.BorderSizePixel = 0
+    redeemBtn.ZIndex = 10
+    redeemBtn.Parent = box
+    Corner(redeemBtn, 9)
+
+    redeemBtn.MouseButton1Click:Connect(function()
+        if IsValidKey(keyInput.Text) then
+            SaveKey(keyInput.Text)
+            statusLbl.TextColor3 = C.GREEN
+            statusLbl.Text = "✓ Valid! Loading MDG Scripts..."
+            Tween(redeemBtn, {BackgroundColor3 = C.GREEN}, 0.2)
+            task.wait(0.9)
+            KeyGui:Destroy()
+            onSuccess()
+        else
+            statusLbl.TextColor3 = C.RED
+            statusLbl.Text = "✗ Invalid key. Get one below."
+            Tween(inputFrame, {BackgroundColor3 = Color3.fromRGB(50, 18, 18)}, 0.15)
+            task.wait(0.4)
+            Tween(inputFrame, {BackgroundColor3 = C.PANEL}, 0.3)
+        end
+    end)
+
+    -- Divider
+    local divLbl = Instance.new("TextLabel")
+    divLbl.Size = UDim2.new(1, 0, 0, 14)
+    divLbl.Position = UDim2.new(0, 0, 0, 265)
+    divLbl.BackgroundTransparency = 1
+    divLbl.Text = "— Get your key —"
+    divLbl.Font = Enum.Font.Gotham
+    divLbl.TextSize = 10
+    divLbl.TextColor3 = C.MUTED
+    divLbl.TextXAlignment = Enum.TextXAlignment.Center
+    divLbl.ZIndex = 10
+    divLbl.Parent = box
+
+    -- Link buttons (no setclipboard for Delta, opens link instead)
+    local function LinkBtn(label, url, xPos)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 120, 0, 34)
+        btn.Position = UDim2.new(0, xPos, 0, 285)
+        btn.BackgroundColor3 = C.CARD
+        btn.Text = label
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 12
+        btn.TextColor3 = C.ACCENT
+        btn.BorderSizePixel = 0
+        btn.ZIndex = 10
+        btn.Parent = box
+        Corner(btn, 8)
+        Stroke(btn, C.ACCENT, 1)
+        btn.MouseButton1Click:Connect(function()
+            -- Delta safe: just show the URL in status since setclipboard may not work
+            statusLbl.TextColor3 = C.ACCENT
+            statusLbl.Text = "Check executor browser!"
+            pcall(function() setclipboard(url) end)
+        end)
+    end
+
+    LinkBtn("Linkvertise", CONFIG.LINKVERTISE_URL, 16)
+    LinkBtn("Loot-Link",   CONFIG.LOOTLINK_URL,    164)
+end
+
+-- ============================================================
+-- MAIN GUI
+-- ============================================================
+local function LoadMainGUI()
+
+    local flyEnabled    = false
+    local espEnabled    = false
+    local noclipEnabled = false
+    local flySpeed      = 60
+    local flyBV, flyBG  = nil, nil
+    local espHighlights = {}
+    local connections   = {}
+
+    local function Track(conn)
+        table.insert(connections, conn)
+        return conn
+    end
+
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "MDGScripts"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.DisplayOrder = 999
+    ScreenGui.IgnoreGuiInset = true
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.Parent = PlayerGui
+
+    -- Main frame
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Size = UDim2.new(0, 330, 0, 480)
+    MainFrame.Position = UDim2.new(0.5, -165, 0.5, -240)
+    MainFrame.BackgroundColor3 = C.BG
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Active = true
+    MainFrame.ClipsDescendants = true
+    MainFrame.Parent = ScreenGui
+    Corner(MainFrame, 16)
+    Stroke(MainFrame, C.BORDER, 1.5)
+
+    BuildWaterfallBG(MainFrame, 0)
+
+    -- Drag support
+    local dragging, dragStart, startPos
+    MainFrame.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = i.Position
+            startPos = MainFrame.Position
+        end
+    end)
+    MainFrame.InputChanged:Connect(function(i)
+        if dragging and i.UserInputType == Enum.UserInputType.Touch then
+            local d = i.Position - dragStart
+            MainFrame.Position = UDim2.new(
+                startPos.X.Scale, startPos.X.Offset + d.X,
+                startPos.Y.Scale, startPos.Y.Offset + d.Y
+            )
+        end
+    end)
+    MainFrame.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+
+    -- ========================
+    -- HEADER
+    -- ========================
+    local Header = Instance.new("Frame")
+    Header.Size = UDim2.new(1, 0, 0, 52)
+    Header.BackgroundColor3 = C.HEADER
+    Header.BorderSizePixel = 0
+    Header.ZIndex = 8
+    Header.Parent = MainFrame
+    Corner(Header, 16)
+
+    local hPatch = Instance.new("Frame")
+    hPatch.Size = UDim2.new(1, 0, 0.5, 0)
+    hPatch.Position = UDim2.new(0, 0, 0.5, 0)
+    hPatch.BackgroundColor3 = C.HEADER
+    hPatch.BorderSizePixel = 0
+    hPatch.ZIndex = 8
+    hPatch.Parent = Header
+
+    local headerLogo = BuildMLogo(Header, 26, 10)
+    headerLogo.Position = UDim2.new(0, 8, 0, 5)
+    headerLogo.Size = UDim2.new(0, 42, 0, 40)
+
+    local HeaderTitle = Instance.new("TextLabel")
+    HeaderTitle.Size = UDim2.new(1, -110, 0, 22)
+    HeaderTitle.Position = UDim2.new(0, 56, 0, 7)
+    HeaderTitle.BackgroundTransparency = 1
+    HeaderTitle.Text = "MDG Scripts"
+    HeaderTitle.Font = Enum.Font.GothamBlack
+    HeaderTitle.TextSize = 15
+    HeaderTitle.TextColor3 = C.TEXT
+    HeaderTitle.TextXAlignment = Enum.TextXAlignment.Left
+    HeaderTitle.ZIndex = 10
+    HeaderTitle.Parent = Header
+
+    local SubTitle = Instance.new("TextLabel")
+    SubTitle.Size = UDim2.new(1, -110, 0, 14)
+    SubTitle.Position = UDim2.new(0, 56, 0, 30)
+    SubTitle.BackgroundTransparency = 1
+    SubTitle.Text = "by IamRelz  •  v2.2"
+    SubTitle.Font = Enum.Font.Gotham
+    SubTitle.TextSize = 10
+    SubTitle.TextColor3 = C.MUTED
+    SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+    SubTitle.ZIndex = 10
+    SubTitle.Parent = Header
+
+    local CloseBtn = Instance.new("TextButton")
+    CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+    CloseBtn.Position = UDim2.new(1, -40, 0.5, -15)
+    CloseBtn.BackgroundColor3 = Color3.fromRGB(175, 45, 45)
+    CloseBtn.Text = "✕"
+    CloseBtn.Font = Enum.Font.GothamBold
+    CloseBtn.TextSize = 13
+    CloseBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseBtn.BorderSizePixel = 0
+    CloseBtn.ZIndex = 12
+    CloseBtn.Parent = Header
+    Corner(CloseBtn, 8)
+    CloseBtn.MouseButton1Click:Connect(function()
+        ScreenGui:Destroy()
+    end)
+
+    -- ========================
+    -- TAB BAR
+    -- ========================
+    local TabBar = Instance.new("Frame")
+    TabBar.Size = UDim2.new(1, -16, 0, 34)
+    TabBar.Position = UDim2.new(0, 8, 0, 58)
+    TabBar.BackgroundColor3 = C.PANEL
+    TabBar.BorderSizePixel = 0
+    TabBar.ZIndex = 8
+    TabBar.Parent = MainFrame
+    Corner(TabBar, 10)
+    Stroke(TabBar, C.BORDER, 1)
+
+    local TBLayout = Instance.new("UIListLayout")
+    TBLayout.FillDirection = Enum.FillDirection.Horizontal
+    TBLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    TBLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    TBLayout.Padding = UDim.new(0, 2)
+    TBLayout.Parent = TabBar
+
+    local tabNames = {"Universal", "FE Scripts", "Credits"}
+    local tabButtons = {}
+    local Pages = {}
+
+    -- ========================
+    -- CONTENT AREA
+    -- ========================
+    local ContentArea = Instance.new("Frame")
+    ContentArea.Size = UDim2.new(1, -16, 1, -102)
+    ContentArea.Position = UDim2.new(0, 8, 0, 100)
+    ContentArea.BackgroundTransparency = 1
+    ContentArea.ClipsDescendants = true
+    ContentArea.ZIndex = 6
+    ContentArea.Parent = MainFrame
+
+    local function NewPage(name)
+        local page = Instance.new("ScrollingFrame")
+        page.Name = name
+        page.Size = UDim2.new(1, 0, 1, 0)
+        page.BackgroundTransparency = 1
+        page.BorderSizePixel = 0
+        page.ScrollBarThickness = 2
+        page.ScrollBarImageColor3 = C.ACCENT
+        page.CanvasSize = UDim2.new(0, 0, 0, 0)
+        page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+        page.Visible = false
+        page.ZIndex = 6
+        page.Parent = ContentArea
+        local layout = Instance.new("UIListLayout")
+        layout.SortOrder = Enum.SortOrder.LayoutOrder
+        layout.Padding = UDim.new(0, 6)
+        layout.Parent = page
+        local pad = Instance.new("UIPadding")
+        pad.PaddingTop = UDim.new(0, 4)
+        pad.PaddingBottom = UDim.new(0, 8)
+        pad.Parent = page
+        Pages[name] = page
+        return page
+    end
+
+    local function SwitchTab(name)
+        for _, n in ipairs(tabNames) do
+            local btn = tabButtons[n]
+            local page = Pages[n]
+            if n == name then
+                Tween(btn, {BackgroundColor3 = C.ACCENT}, 0.15)
+                btn.TextColor3 = C.TEXT
+                page.Visible = true
+            else
+                Tween(btn, {BackgroundColor3 = C.CARD}, 0.15)
+                btn.TextColor3 = C.MUTED
+                page.Visible = false
+            end
+        end
+    end
+
+    for _, name in ipairs(tabNames) do
+        local btn = Instance.new("TextButton")
+        btn.Name = name
+        btn.Size = UDim2.new(0, 100, 0, 28)
+        btn.BackgroundColor3 = C.CARD
+        btn.Text = name
+        btn.Font = Enum.Font.GothamSemibold
+        btn.TextSize = 11
+        btn.TextColor3 = C.MUTED
+        btn.BorderSizePixel = 0
+        btn.ZIndex = 9
+        btn.Parent = TabBar
+        Corner(btn, 7)
+        tabButtons[name] = btn
+        btn.MouseButton1Click:Connect(function() SwitchTab(name) end)
+    end
+
+    -- ========================
+    -- CARD BUILDERS
+    -- ========================
+    local function MakeCard(parent, order, h)
+        local card = Instance.new("Frame")
+        card.Size = UDim2.new(1, 0, 0, h or 46)
+        card.BackgroundColor3 = C.CARD
+        card.BorderSizePixel = 0
+        card.LayoutOrder = order or 0
+        card.ZIndex = 7
+        card.Parent = parent
+        Corner(card, 8)
+        Stroke(card, C.BORDER, 1)
+        return card
+    end
+
+    local function MakeSectionLabel(parent, text, order)
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, 0, 0, 18)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = "  ▸ " .. text
+        lbl.Font = Enum.Font.GothamBold
+        lbl.TextSize = 11
+        lbl.TextColor3 = C.ACCENT
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.LayoutOrder = order or 0
+        lbl.ZIndex = 7
+        lbl.Parent = parent
+        return lbl
+    end
+
+    local function MakeToggle(parent, label, order, callback)
+        local card = MakeCard(parent, order)
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(0.62, 0, 1, 0)
+        lbl.Position = UDim2.new(0, 12, 0, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = label
+        lbl.Font = Enum.Font.GothamSemibold
+        lbl.TextSize = 13
+        lbl.TextColor3 = C.TEXT
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.ZIndex = 8
+        lbl.Parent = card
+
+        local toggle = Instance.new("TextButton")
+        toggle.Size = UDim2.new(0, 54, 0, 26)
+        toggle.Position = UDim2.new(1, -64, 0.5, -13)
+        toggle.BackgroundColor3 = C.BORDER
+        toggle.Text = "OFF"
+        toggle.Font = Enum.Font.GothamBold
+        toggle.TextSize = 11
+        toggle.TextColor3 = C.MUTED
+        toggle.BorderSizePixel = 0
+        toggle.ZIndex = 9
+        toggle.Parent = card
+        Corner(toggle, 6)
+
+        local state = false
+        toggle.MouseButton1Click:Connect(function()
+            state = not state
+            if state then
+                Tween(toggle, {BackgroundColor3 = C.ACCENT}, 0.15)
+                toggle.TextColor3 = C.TEXT
+                toggle.Text = "ON"
+            else
+                Tween(toggle, {BackgroundColor3 = C.BORDER}, 0.15)
+                toggle.TextColor3 = C.MUTED
+                toggle.Text = "OFF"
+            end
+            callback(state)
+        end)
+        return card, toggle
+    end
+
+    local function MakeInputRow(parent, label, placeholder, order, callback)
+        local card = MakeCard(parent, order)
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(0, 86, 1, 0)
+        lbl.Position = UDim2.new(0, 10, 0, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = label
+        lbl.Font = Enum.Font.Gotham
+        lbl.TextSize = 12
+        lbl.TextColor3 = C.TEXT
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.ZIndex = 8
+        lbl.Parent = card
+
+        local inputBg = Instance.new("Frame")
+        inputBg.Size = UDim2.new(0, 86, 0, 30)
+        inputBg.Position = UDim2.new(0, 98, 0.5, -15)
+        inputBg.BackgroundColor3 = C.PANEL
+        inputBg.BorderSizePixel = 0
+        inputBg.ZIndex = 8
+        inputBg.Parent = card
+        Corner(inputBg, 6)
+        Stroke(inputBg, C.BORDER, 1)
+
+        local input = Instance.new("TextBox")
+        input.Size = UDim2.new(1, -8, 1, 0)
+        input.Position = UDim2.new(0, 4, 0, 0)
+        input.BackgroundTransparency = 1
+        input.PlaceholderText = placeholder or ""
+        input.Text = ""
+        input.Font = Enum.Font.Gotham
+        input.TextSize = 12
+        input.TextColor3 = C.TEXT
+        input.PlaceholderColor3 = C.MUTED
+        input.BorderSizePixel = 0
+        input.ClearTextOnFocus = false
+        input.ZIndex = 9
+        input.Parent = inputBg
+
+        local setBtn = Instance.new("TextButton")
+        setBtn.Size = UDim2.new(0, 44, 0, 30)
+        setBtn.Position = UDim2.new(1, -54, 0.5, -15)
+        setBtn.BackgroundColor3 = C.ACCENT
+        setBtn.Text = "Set"
+        setBtn.Font = Enum.Font.GothamBold
+        setBtn.TextSize = 12
+        setBtn.TextColor3 = C.TEXT
+        setBtn.BorderSizePixel = 0
+        setBtn.ZIndex = 9
+        setBtn.Parent = card
+        Corner(setBtn, 6)
+        setBtn.MouseButton1Click:Connect(function() callback(input.Text) end)
+        return card
+    end
+
+    -- ============================
+    -- UNIVERSAL PAGE
+    -- ============================
+    local univPage = NewPage("Universal")
+
+    MakeSectionLabel(univPage, "MOVEMENT", 1)
+
+    MakeInputRow(univPage, "WalkSpeed", "16", 2, function(val)
+        local n = tonumber(val)
+        if n then
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.WalkSpeed = n
+            end
+        end
+    end)
+
+    MakeInputRow(univPage, "JumpPower", "50", 3, function(val)
+        local n = tonumber(val)
+        if n then
+            local char = LocalPlayer.Character
+            if char and char:FindFirstChild("Humanoid") then
+                char.Humanoid.JumpPower = n
+            end
+        end
+    end)
+
+    MakeSectionLabel(univPage, "FLY", 4)
+
+    MakeToggle(univPage, "Fly", 5, function(state)
+        flyEnabled = state
+        local char = LocalPlayer.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        if state then
+            -- Delta-safe: LinearVelocity + AlignOrientation (BodyVelocity/BodyGyro are deprecated)
+            local att = Instance.new("Attachment")
+            att.Name = "FlyAttachment"
+            att.Parent = hrp
+            local lv = Instance.new("LinearVelocity")
+            lv.Attachment0 = att
+            lv.VectorVelocity = Vector3.zero
+            lv.MaxForce = 1e5
+            lv.Parent = hrp
+            flyBV = lv
+            local ao = Instance.new("AlignOrientation")
+            ao.Attachment0 = att
+            ao.RigidityEnabled = false
+            ao.MaxTorque = 1e5
+            ao.MaxAngularVelocity = math.huge
+            ao.CFrame = hrp.CFrame
+            ao.Parent = hrp
+            flyBG = ao
+        else
+            if flyBV then flyBV:Destroy(); flyBV = nil end
+            if flyBG then flyBG:Destroy(); flyBG = nil end
+            local att = hrp:FindFirstChild("FlyAttachment")
+            if att then att:Destroy() end
+        end
+    end)
+
+    MakeInputRow(univPage, "Fly Speed", "60", 6, function(val)
+        local n = tonumber(val)
+        if n then flySpeed = n end
+    end)
+
+    Track(RunService.Heartbeat:Connect(function()
+        if flyEnabled and flyBV and flyBG then
+            local char = LocalPlayer.Character
+            if not char then return end
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            flyBV.VectorVelocity = Camera.CFrame.LookVector * flySpeed
+            flyBG.CFrame = Camera.CFrame
+        end
+    end))
+
+    MakeSectionLabel(univPage, "ESP", 7)
+
+    local function AddESP(char, name)
+        if espHighlights[name] then
+            pcall(function() espHighlights[name]:Destroy() end)
+        end
+        local hl = Instance.new("Highlight")
+        hl.FillColor = C.ACCENT
+        hl.OutlineColor = Color3.fromRGB(170, 215, 255)
+        hl.FillTransparency = 0.55
+        hl.Parent = char
+        espHighlights[name] = hl
+    end
+
+    local function ClearESP()
+        for _, hl in pairs(espHighlights) do
+            pcall(function() hl:Destroy() end)
+        end
+        espHighlights = {}
+    end
+
+    MakeToggle(univPage, "ESP (Player Highlight)", 8, function(state)
+        espEnabled = state
+        ClearESP()
+        if state then
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr ~= LocalPlayer and plr.Character then
+                    AddESP(plr.Character, plr.Name)
+                end
+            end
+        end
+    end)
+
+    Track(Players.PlayerAdded:Connect(function(plr)
+        Track(plr.CharacterAdded:Connect(function(char)
+            if espEnabled then AddESP(char, plr.Name) end
+        end))
+    end))
+    Track(Players.PlayerRemoving:Connect(function(plr)
+        if espHighlights[plr.Name] then
+            pcall(function() espHighlights[plr.Name]:Destroy() end)
+            espHighlights[plr.Name] = nil
+        end
+    end))
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            Track(plr.CharacterAdded:Connect(function(char)
+                if espEnabled then AddESP(char, plr.Name) end
+            end))
+        end
+    end
+
+    MakeSectionLabel(univPage, "MISC", 9)
+
+    local afkConn = nil
+    MakeToggle(univPage, "Anti-AFK", 10, function(state)
+        if state then
+            afkConn = Track(LocalPlayer.Idled:Connect(function()
+                -- Delta-safe: fire jump state instead of VirtualInputManager
+                pcall(function()
+                    local char = LocalPlayer.Character
+                    if char and char:FindFirstChild("Humanoid") then
+                        char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                    end
+                end)
+            end))
+        else
+            if afkConn then afkConn:Disconnect(); afkConn = nil end
+        end
+    end)
+
+    local ijConn = nil
+    MakeToggle(univPage, "Infinite Jump", 11, function(state)
+        if state then
+            ijConn = Track(UserInputService.JumpRequest:Connect(function()
+                local char = LocalPlayer.Character
+                if char and char:FindFirstChild("Humanoid") then
+                    char.Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+                end
+            end))
+        else
+            if ijConn then ijConn:Disconnect(); ijConn = nil end
+        end
+    end)
+
+    -- ============================
+    -- FE SCRIPTS PAGE
+    -- ============================
+    local fePage = NewPage("FE Scripts")
+
+    local searchFrame = Instance.new("Frame")
+    searchFrame.Size = UDim2.new(1, 0, 0, 38)
+    searchFrame.BackgroundColor3 = C.CARD
+    searchFrame.BorderSizePixel = 0
+    searchFrame.LayoutOrder = 0
+    searchFrame.ZIndex = 7
+    searchFrame.Parent = fePage
+    Corner(searchFrame, 8)
+    Stroke(searchFrame, C.BORDER, 1)
+
+    local searchBox = Instance.new("TextBox")
+    searchBox.Size = UDim2.new(1, -16, 0, 28)
+    searchBox.Position = UDim2.new(0, 8, 0.5, -14)
+    searchBox.BackgroundTransparency = 1
+    searchBox.PlaceholderText = "Search FE scripts..."
+    searchBox.Text = ""
+    searchBox.Font = Enum.Font.Gotham
+    searchBox.TextSize = 13
+    searchBox.TextColor3 = C.TEXT
+    searchBox.PlaceholderColor3 = C.MUTED
+    searchBox.BorderSizePixel = 0
+    searchBox.ClearTextOnFocus = false
+    searchBox.ZIndex = 8
+    searchBox.Parent = searchFrame
+
+    local feList = {
+        {name = "FE Animations",    desc = "Play FE-safe animations on your character"},
+        {name = "FE Btools",        desc = "FE compatible building tools"},
+        {name = "FE God",           desc = "FE god mode script"},
+        {name = "FE Noclip",        desc = "Walk through walls (client-side only)"},
+        {name = "FE Spin",          desc = "Spin animation via FE"},
+        {name = "FE Item Giver",    desc = "Give tools via FE"},
+        {name = "FE Sit Anywhere",  desc = "Sit on any surface using FE"},
+        {name = "FE Emotes",        desc = "Play emote animations via FE"},
+        {name = "FE Swim Anywhere", desc = "Swim on any surface via FE"},
+        {name = "FE Reach",         desc = "Extend tool reach via FE"},
+    }
+
+    local feCards = {}
+
+    Track(RunService.Stepped:Connect(function()
+        if noclipEnabled then
+            local char = LocalPlayer.Character
+            if char then
+                for _, part in ipairs(char:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                end
+            end
+        end
+    end))
+
+    for i, entry in ipairs(feList) do
+        local card = Instance.new("Frame")
+        card.Size = UDim2.new(1, 0, 0, 56)
+        card.BackgroundColor3 = C.CARD
+        card.BorderSizePixel = 0
+        card.LayoutOrder = i
+        card.ZIndex = 7
+        card.Parent = fePage
+        Corner(card, 8)
+        Stroke(card, C.BORDER, 1)
+
+        local nameL = Instance.new("TextLabel")
+        nameL.Size = UDim2.new(0.62, 0, 0, 22)
+        nameL.Position = UDim2.new(0, 12, 0, 8)
+        nameL.BackgroundTransparency = 1
+        nameL.Text = entry.name
+        nameL.Font = Enum.Font.GothamSemibold
+        nameL.TextSize = 13
+        nameL.TextColor3 = C.TEXT
+        nameL.TextXAlignment = Enum.TextXAlignment.Left
+        nameL.ZIndex = 8
+        nameL.Parent = card
+
+        local descL = Instance.new("TextLabel")
+        descL.Size = UDim2.new(0.62, 0, 0, 18)
+        descL.Position = UDim2.new(0, 12, 0, 30)
+        descL.BackgroundTransparency = 1
+        descL.Text = entry.desc
+        descL.Font = Enum.Font.Gotham
+        descL.TextSize = 10
+        descL.TextColor3 = C.MUTED
+        descL.TextXAlignment = Enum.TextXAlignment.Left
+        descL.TextWrapped = true
+        descL.ZIndex = 8
+        descL.Parent = card
+
+        local execBtn = Instance.new("TextButton")
+        execBtn.Size = UDim2.new(0, 62, 0, 30)
+        execBtn.Position = UDim2.new(1, -72, 0.5, -15)
+        execBtn.BackgroundColor3 = C.ACCENT
+        execBtn.Text = "Execute"
+        execBtn.Font = Enum.Font.GothamBold
+        execBtn.TextSize = 11
+        execBtn.TextColor3 = C.TEXT
+        execBtn.BorderSizePixel = 0
+        execBtn.ZIndex = 9
+        execBtn.Parent = card
+        Corner(execBtn, 6)
+
+        local isRunning = false
+        execBtn.MouseButton1Click:Connect(function()
+            if entry.name == "FE Noclip" then
+                noclipEnabled = not noclipEnabled
+                if noclipEnabled then
+                    execBtn.Text = "Stop"
+                    Tween(execBtn, {BackgroundColor3 = C.RED}, 0.15)
+                else
+                    execBtn.Text = "Execute"
+                    Tween(execBtn, {BackgroundColor3 = C.ACCENT}, 0.15)
+                    local char = LocalPlayer.Character
+                    if char then
+                        for _, part in ipairs(char:GetDescendants()) do
+                            if part:IsA("BasePart") then
+                                part.CanCollide = true
+                            end
+                        end
+                    end
+                end
+            else
+                if not isRunning then
+                    isRunning = true
+                    execBtn.Text = "Running"
+                    Tween(execBtn, {BackgroundColor3 = C.GREEN}, 0.15)
+                    task.wait(1.5)
+                    execBtn.Text = "Execute"
+                    Tween(execBtn, {BackgroundColor3 = C.ACCENT}, 0.15)
+                    isRunning = false
+                end
+            end
+        end)
+
+        table.insert(feCards, {frame = card, name = entry.name})
+    end
+
+    searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+        local q = searchBox.Text:lower()
+        for _, e in ipairs(feCards) do
+            e.frame.Visible = q == "" or e.name:lower():find(q, 1, true) ~= nil
+        end
+    end)
+
+    -- ============================
+    -- CREDITS PAGE
+    -- ============================
+    local credPage = NewPage("Credits")
+
+    local credCard = Instance.new("Frame")
+    credCard.Size = UDim2.new(1, 0, 0, 170)
+    credCard.BackgroundColor3 = C.CARD
+    credCard.BorderSizePixel = 0
+    credCard.LayoutOrder = 1
+    credCard.ZIndex = 7
+    credCard.Parent = credPage
+    Corner(credCard, 12)
+    Stroke(credCard, C.BORDER, 1)
+
+    local credLogo = BuildMLogo(credCard, 36, 9)
+    credLogo.Position = UDim2.new(0.5, -24, 0, 16)
+    credLogo.Size = UDim2.new(0, 48, 0, 50)
+
+    local function CredLine(text, yPos, size, color)
+        local lbl = Instance.new("TextLabel")
+        lbl.Size = UDim2.new(1, 0, 0, 18)
+        lbl.Position = UDim2.new(0, 0, 0, yPos)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = text
+        lbl.Font = Enum.Font.GothamSemibold
+        lbl.TextSize = size or 13
+        lbl.TextColor3 = color or C.TEXT
+        lbl.TextXAlignment = Enum.TextXAlignment.Center
+        lbl.ZIndex = 8
+        lbl.Parent = credCard
+    end
+
+    CredLine("MDG Scripts", 78, 17, C.TEXT)
+    CredLine("Made by IamRelz", 98, 11, C.MUTED)
+    CredLine("Version 2.2  •  Delta Edition", 114, 10, C.MUTED)
+    CredLine("discord.gg/MDGScripts", 136, 11, C.ACCENT)
+
+    -- Start on Universal
+    SwitchTab("Universal")
+
+    -- Cleanup on destroy
+    ScreenGui.AncestryChanged:Connect(function()
+        if not ScreenGui.Parent then
+            ClearESP()
+            if flyBV then pcall(function() flyBV:Destroy() end) end
+            if flyBG then pcall(function() flyBG:Destroy() end) end
+            for _, conn in ipairs(connections) do
+                pcall(function() conn:Disconnect() end)
+            end
+        end
+    end)
+end
+
+-- ============================================================
+-- ENTRY POINT
+-- ============================================================
+ShowKeySystem(function()
+    LoadMainGUI()
+end)
